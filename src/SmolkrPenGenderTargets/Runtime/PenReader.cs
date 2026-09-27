@@ -3,17 +3,17 @@
 // Role in the larger system: the one place that reads a live AnimalPen out of
 // the running game. It walks the pen's animals the same way ASKA's own
 // GetSmolkrReadyForSlaughter does, turns each into a Core.PenAnimal, and runs
-// the Core planner over them. Both the slaughter patch and the panel go through
-// Plan() here, so what the panel predicts is exactly what the villager will do.
+// the Core planner over them.
 //
 // The walk mirrors vanilla deliberately (see docs/DESIGN.md):
-//   * animals come from Kennel._ownedPets, in list order;
+//   * the pen's population is Kennel._ownedPets.Count - every entry, pups
+//     included, exactly the number vanilla compares with the slaughter limit;
+//   * animals come from _ownedPets, in list order;
 //   * an entry whose pet or GameObject is gone is skipped;
 //   * an entry without a DomesticSmolkr component is skipped;
 //   * maturity is Pet._mature and gender is DomesticSmolkr.isFemale.
-// The two differences are that pups are recorded (vanilla only looks at adults)
-// so the panel can show them, and every adult is kept rather than only the
-// last of each gender, so the planner can choose among them.
+// Pups are recorded as well as adults so the log can show a full head count;
+// the planner itself only ever chooses an adult, as vanilla does.
 
 using System.Collections.Generic;
 using SmolkrPenGenderTargets.Core;
@@ -95,7 +95,7 @@ internal static class PenReader
 
         var targets = HerdTargets.Create(snapshot.SlaughterLimit, femalesToKeep);
         var decision = CullPlanner.Decide(
-            snapshot.Animals, targets, snapshot.MinimumPopulation, Plugin.CountPupsTowardTargets.Value);
+            snapshot.Animals, targets, snapshot.OwnedPetCount, snapshot.MinimumPopulation);
 
         if (decision.HasVictim) victim = snapshot.Smolkr[decision.VictimIndex];
         return decision;

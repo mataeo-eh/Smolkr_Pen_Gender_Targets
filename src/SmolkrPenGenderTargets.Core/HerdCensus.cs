@@ -1,8 +1,8 @@
 // HerdCensus.cs
 //
 // Role in the larger system: a head count of a pen by gender and age. CullPlanner
-// decides from it, and the in-game panel shows it to the player so they can see
-// why a slaughter is or is not about to happen.
+// decides from it, and the log (Runtime/SlaughterLog) records it with every
+// decision so a slaughter - or the lack of one - can be explained afterwards.
 
 using System.Collections.Generic;
 

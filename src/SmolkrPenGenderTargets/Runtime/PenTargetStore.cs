@@ -4,7 +4,7 @@
 // whether the player turned gender targets on and how many females to keep.
 //
 // A pen with no entry here is left entirely to vanilla. Entries are created by
-// the panel (UI/GenderTargetsPanel), restored from the save by
+// the "Females to keep" row (UI/FemalesToKeepRow), restored from the save by
 // Patches/PenSavePatches, and dropped when the pen is destroyed
 // (Patches/PenLifetimePatches).
 //

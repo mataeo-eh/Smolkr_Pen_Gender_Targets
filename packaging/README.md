@@ -1,31 +1,30 @@
 # Smolkr Pen Gender Targets
 
-Choose how many female and male smolkr each pen keeps.
+Choose the ratio of female to male smolkr each pen keeps.
 
-In vanilla, a smolkr pen has a single slaughter limit. When the pen goes over
-it, villagers slaughter an adult from whichever gender has more adults, so you
-cannot ask for "5 females and 1 male", and a pen can drift to a single gender
-and stop breeding.
+In vanilla, when a pen goes over its slaughter limit, villagers slaughter an
+adult from whichever gender has more adults, so every pen drifts toward 50/50.
+There is no way to ask for, say, 5 females and 1 male.
 
-This mod adds a small window beside the pen's slaughter task:
+This mod adds a **Females to keep** row under the slaughter limit in the pen's
+slaughter task:
 
-- **Use gender targets for this pen**: off means vanilla, exactly.
-- **Females to keep**: set it per pen.
-- **Males to keep**: always the slaughter limit minus females to keep.
+- **Off**: the pen behaves exactly like vanilla.
+- **0 up to the limit**: adult females to keep. Males to keep is the limit minus
+  that, shown in the row's title.
 
-It also shows the pen's head count and what will be slaughtered next.
-
-With targets on, villagers only slaughter adults from a gender that is over its
-target. Pups are never slaughtered and, by default, are judged once they grow
-up.
+Only the gender choice changes. Villagers still slaughter only when the pen is
+over its limit (pups count, as in vanilla), never below the pen's minimum
+population, and never a pup. They take from the gender furthest above its
+target instead of the one with more adults.
 
 ## Configuration
 
 `BepInEx/config/aska.smolkr.pen.gender.targets.cfg`
 
 - `Enabled`: master switch; false returns every pen to vanilla.
-- `CountPupsTowardTargets`: count pups toward their gender's target (default off).
-- `ShowPanel`: show the window beside the slaughter task.
+- `ShowRow`: show the Females to keep row.
+- `RowOffsetX` / `RowOffsetY`: nudge the row if it overlaps something.
 
 ## Notes
 

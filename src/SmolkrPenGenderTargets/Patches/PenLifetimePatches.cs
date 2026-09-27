@@ -10,7 +10,6 @@
 
 using HarmonyLib;
 using SmolkrPenGenderTargets.Runtime;
-using SmolkrPenGenderTargets.UI;
 using SSSGame;
 
 namespace SmolkrPenGenderTargets.Patches;
@@ -20,7 +19,7 @@ internal static class KennelDestroyPatch
 {
     /// <summary>
     /// Forgets everything held about a pen that is being destroyed.
-    /// Calls: PenTargetStore.Forget, SlaughterLog.Forget, TaskPanelTracker.Forget.
+    /// Calls: PenTargetStore.Forget, SlaughterLog.Forget.
     /// </summary>
     /// <param name="__instance">The kennel (possibly a pen) being destroyed.</param>
     private static void Prefix(Kennel __instance)
@@ -28,6 +27,5 @@ internal static class KennelDestroyPatch
         if (__instance == null) return;
         PenTargetStore.Forget(__instance.Pointer);
         SlaughterLog.Forget(__instance.Pointer);
-        TaskPanelTracker.Forget(__instance.Pointer);
     }
 }

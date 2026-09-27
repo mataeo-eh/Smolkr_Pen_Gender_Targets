@@ -2,9 +2,13 @@
 //
 // Role in the larger system: pins down the mod's slaughter rule (CullPlanner)
 // and target arithmetic (HerdTargets) so a later change cannot silently alter
-// which smolkr a villager kills.
+// which smolkr a villager kills. The parity tests compare the rule against
+// VanillaReference, a transcription of the game's own method, to prove the mod
+// changes nothing but the ratio.
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using SmolkrPenGenderTargets.Core;
 using Xunit;
 
@@ -17,144 +21,56 @@ namespace SmolkrPenGenderTargets.Core.Tests
         private static readonly PenAnimal FPup = PenAnimal.FemalePup;
         private static readonly PenAnimal MPup = PenAnimal.MalePup;
 
-        /// <summary>Runs the planner with no minimum population and adults-only counting.</summary>
+        /// <summary>Runs the planner with the pen's population equal to its animal count and no minimum.</summary>
         private static CullDecision Decide(int limit, int females, params PenAnimal[] pen) =>
-            CullPlanner.Decide(pen, HerdTargets.Create(limit, females), minimumPopulation: 0, countPups: false);
+            CullPlanner.Decide(pen, HerdTargets.Create(limit, females), pen.Length, minimumPopulation: 0);
 
-        // --- The situation the mod exists for ---------------------------------
+        // --- When a slaughter happens: exactly vanilla ---------------------------
 
         [Fact]
-        public void SixFemalesWithFiveOneTarget_SlaughtersAFemale()
+        public void AtTheLimit_SlaughtersNothing_EvenIfTheRatioIsOff()
         {
-            // Vanilla would see 6 animals against a limit of 6 and do nothing,
-            // leaving a pen with no male at all. Targets of 5F/1M make one female
-            // surplus.
+            // 6 females against 5F/1M, limit 6: the pen is not OVER the limit, and
+            // vanilla slaughters nothing here, so neither does the mod.
             var decision = Decide(6, 5, F, F, F, F, F, F);
 
-            Assert.Equal(CullReason.SurplusFemale, decision.Reason);
+            Assert.Equal(CullReason.WithinLimit, decision.Reason);
+            Assert.False(decision.HasVictim);
+        }
+
+        [Fact]
+        public void PupsCountTowardTheLimit_LikeVanilla()
+        {
+            // 5 adults and 2 pups against a limit of 6: over the limit.
+            var decision = Decide(6, 5, F, F, F, F, M, FPup, MPup);
+
             Assert.True(decision.HasVictim);
         }
 
         [Fact]
-        public void SevenMalesWithFiveOneTarget_SlaughtersAMale()
+        public void PopulationComesFromTheGamesCount_NotTheReadableAnimals()
         {
-            var decision = Decide(6, 5, M, M, M, M, M, M, M);
+            // The game counts an owned-pets entry it could not read a gender from;
+            // the mod must see the same population as vanilla does.
+            var pen = new[] { F, F, M };
+            var decision = CullPlanner.Decide(pen, HerdTargets.Create(3, 2), penPopulation: 4, minimumPopulation: 0);
 
-            Assert.Equal(CullReason.SurplusMale, decision.Reason);
+            Assert.True(decision.HasVictim);
         }
 
         [Fact]
-        public void ExactlyOnTarget_SlaughtersNothing()
+        public void OverTheLimitButOnlyPups_SlaughtersNothing()
         {
-            var decision = Decide(6, 5, F, F, M, F, F, F);
+            var decision = Decide(1, 1, FPup, MPup);
 
-            Assert.Equal(CullReason.WithinTargets, decision.Reason);
-            Assert.Equal(-1, decision.VictimIndex);
+            Assert.Equal(CullReason.NoAdults, decision.Reason);
         }
-
-        [Fact]
-        public void UnderTargetInOneGender_DoesNotTakeFromTheOther()
-        {
-            // 4F/2M against 5F/1M: males are over, so a male goes even though the
-            // pen as a whole is at the limit and females are short.
-            var decision = Decide(6, 5, F, F, F, F, M, M);
-
-            Assert.Equal(CullReason.SurplusMale, decision.Reason);
-        }
-
-        [Fact]
-        public void NoMalesWanted_EveryMaleIsSurplus()
-        {
-            var decision = Decide(4, 4, F, F, F, F, M);
-
-            Assert.Equal(CullReason.SurplusMale, decision.Reason);
-        }
-
-        // --- Which individual ----------------------------------------------------
-
-        [Fact]
-        public void Victim_IsTheLastAdultOfTheSurplusGender()
-        {
-            // Vanilla takes the last matching animal in the pen's list; the mod
-            // keeps that so only the GENDER choice changes.
-            var decision = Decide(2, 1, F, M, F, M, FPup);
-
-            Assert.Equal(CullReason.SurplusMale, decision.Reason);
-            Assert.Equal(3, decision.VictimIndex);
-        }
-
-        [Fact]
-        public void Victim_IsNeverAPup()
-        {
-            // Keep 1 female and 0 males: the adult male is surplus. The male pup
-            // after him in the list is the "last male", but must not be chosen.
-            var decision = Decide(1, 1, MPup, M, MPup);
-
-            Assert.Equal(CullReason.SurplusMale, decision.Reason);
-            Assert.Equal(1, decision.VictimIndex);
-        }
-
-        // --- Both genders over target --------------------------------------------
-
-        [Fact]
-        public void BothOver_LargerSurplusGoesFirst()
-        {
-            // Target 2F/2M; pen 5F (surplus 3) and 3M (surplus 1).
-            var decision = Decide(4, 2, F, F, F, F, F, M, M, M);
-
-            Assert.Equal(CullReason.SurplusFemale, decision.Reason);
-        }
-
-        [Fact]
-        public void BothOverEqually_MaleGoesFirst_LikeVanilla()
-        {
-            var decision = Decide(4, 2, F, F, F, M, M, M);
-
-            Assert.Equal(CullReason.SurplusMale, decision.Reason);
-        }
-
-        // --- Pups ---------------------------------------------------------------
-
-        [Fact]
-        public void PupsAreIgnoredByDefault()
-        {
-            // A full breeding herd plus a male pup: nothing goes. The pup is
-            // judged when it grows up, so the only adult male is not killed to
-            // make room for his own offspring.
-            var decision = Decide(6, 5, F, F, F, F, F, M, MPup);
-
-            Assert.Equal(CullReason.WithinTargets, decision.Reason);
-        }
-
-        [Fact]
-        public void CountPups_PupCanMakeItsGenderSurplus()
-        {
-            var pen = new[] { F, F, F, F, F, M, MPup };
-            var decision = CullPlanner.Decide(pen, HerdTargets.Create(6, 5), 0, countPups: true);
-
-            Assert.Equal(CullReason.SurplusMale, decision.Reason);
-            Assert.Equal(5, decision.VictimIndex);
-        }
-
-        [Fact]
-        public void CountPups_SurplusMadeOnlyOfPups_WaitsInsteadOfTakingTheOtherGender()
-        {
-            // No male should be wanted, but the only males are pups. Slaughtering
-            // a female instead would push the pen further from the target.
-            var pen = new[] { F, F, MPup };
-            var decision = CullPlanner.Decide(pen, HerdTargets.Create(2, 2), 0, countPups: true);
-
-            Assert.Equal(CullReason.SurplusIsOnlyPups, decision.Reason);
-            Assert.False(decision.HasVictim);
-        }
-
-        // --- Minimum population ------------------------------------------------
 
         [Fact]
         public void BelowMinimumPopulation_SlaughtersNothing()
         {
             var pen = new[] { M, M, M };
-            var decision = CullPlanner.Decide(pen, HerdTargets.Create(1, 1), minimumPopulation: 4, countPups: false);
+            var decision = CullPlanner.Decide(pen, HerdTargets.Create(1, 1), pen.Length, minimumPopulation: 4);
 
             Assert.Equal(CullReason.BelowMinimumPopulation, decision.Reason);
         }
@@ -163,8 +79,116 @@ namespace SmolkrPenGenderTargets.Core.Tests
         public void EmptyOrNullPen_SlaughtersNothing()
         {
             Assert.False(Decide(0, 0).HasVictim);
-            Assert.False(CullPlanner.Decide(null, HerdTargets.Create(3, 1), 0, false).HasVictim);
+            Assert.False(CullPlanner.Decide(null, HerdTargets.Create(3, 1), 0, 0).HasVictim);
         }
+
+        // --- Which gender: the one thing the mod changes -------------------------
+
+        [Fact]
+        public void TargetRatio_ReplacesTheMajorityRule()
+        {
+            // 5F/1M wanted, 5F/2M in the pen (7 > 6). Vanilla takes a female (the
+            // majority); the mod takes the extra male.
+            var decision = Decide(6, 5, F, F, F, F, F, M, M);
+
+            Assert.Equal(CullReason.MaleChosen, decision.Reason);
+            Assert.Equal(CullReason.FemaleChosen, VanillaReference.Decide(new[] { F, F, F, F, F, M, M }, 6, 7, 0).Reason);
+        }
+
+        [Fact]
+        public void NewbornPushesPenOverLimit_TheOverTargetGenderGoes()
+        {
+            // 6 adult females, no male, limit 6 with 5F/1M wanted. A pup puts the
+            // pen over the limit; females are 1 over target, males 1 under.
+            var decision = Decide(6, 5, F, F, F, F, F, F, MPup);
+
+            Assert.Equal(CullReason.FemaleChosen, decision.Reason);
+        }
+
+        [Fact]
+        public void BothOver_LargerSurplusGoesFirst()
+        {
+            // Target 2F/2M; pen 5F (surplus 3) and 3M (surplus 1).
+            var decision = Decide(4, 2, F, F, F, F, F, M, M, M);
+
+            Assert.Equal(CullReason.FemaleChosen, decision.Reason);
+        }
+
+        [Fact]
+        public void EqualSurplus_MaleGoes_LikeVanillasTieBreak()
+        {
+            // 5F/1M wanted, pen exactly 5F/1M plus a pup: both at surplus 0.
+            var decision = Decide(6, 5, F, F, F, F, F, M, FPup);
+
+            Assert.Equal(CullReason.MaleChosen, decision.Reason);
+        }
+
+        [Fact]
+        public void PreferredGenderHasNoAdults_TheOtherGenderGoes_LikeVanilla()
+        {
+            // Every male wanted, none present as adults; the pen is over the limit,
+            // so as in vanilla an adult of the gender that exists is taken.
+            var decision = Decide(3, 0, F, F, MPup, MPup);
+
+            Assert.Equal(CullReason.FemaleChosen, decision.Reason);
+        }
+
+        // --- Which individual: vanilla's --------------------------------------
+
+        [Fact]
+        public void Victim_IsTheLastAdultOfTheChosenGender_NeverAPup()
+        {
+            var decision = Decide(1, 1, F, M, MPup, M, MPup);
+
+            Assert.Equal(CullReason.MaleChosen, decision.Reason);
+            Assert.Equal(3, decision.VictimIndex);
+        }
+
+        // --- Parity with vanilla -----------------------------------------------
+
+        [Fact]
+        public void EvenSplitTargets_MatchVanillaExactly_OnRandomPens()
+        {
+            // With an even split the mod must make exactly vanilla's decision -
+            // same outcome and same individual - for any pen at all.
+            var random = new Random(20260927);
+            for (int run = 0; run < 20000; run++)
+            {
+                int limit = random.Next(0, 7) * 2;
+                int minimum = random.Next(0, 6);
+                var pen = RandomPen(random);
+                int population = pen.Length + (random.Next(10) == 0 ? 1 : 0);
+
+                var mod = CullPlanner.Decide(pen, HerdTargets.Create(limit, limit / 2), population, minimum);
+                var vanilla = VanillaReference.Decide(pen, limit, population, minimum);
+
+                Assert.Equal(vanilla.VictimIndex, mod.VictimIndex);
+            }
+        }
+
+        [Fact]
+        public void AnyTargets_SlaughterHappensExactlyWhenVanillasWould()
+        {
+            // Whatever the targets, the "whether" is vanilla's; only the "which"
+            // may differ.
+            var random = new Random(7);
+            for (int run = 0; run < 20000; run++)
+            {
+                int limit = random.Next(0, 12);
+                int minimum = random.Next(0, 6);
+                var pen = RandomPen(random);
+
+                var mod = CullPlanner.Decide(pen, HerdTargets.Create(limit, random.Next(-1, limit + 2)), pen.Length, minimum);
+                var vanilla = VanillaReference.Decide(pen, limit, pen.Length, minimum);
+
+                Assert.Equal(vanilla.HasVictim, mod.HasVictim);
+            }
+        }
+
+        private static PenAnimal[] RandomPen(Random random) =>
+            Enumerable.Range(0, random.Next(0, 16))
+                .Select(_ => new PenAnimal(random.Next(2) == 0, random.Next(4) != 0))
+                .ToArray();
 
         // --- Target arithmetic ---------------------------------------------------
 
@@ -193,6 +217,36 @@ namespace SmolkrPenGenderTargets.Core.Tests
             Assert.Equal(1, census.FemalePups);
             Assert.Equal(2, census.MalePups);
             Assert.Equal(6, census.Total);
+        }
+    }
+
+    /// <summary>
+    /// ASKA's own AnimalPen.GetSmolkrReadyForSlaughter, transcribed line by line
+    /// from the disassembly in docs/DESIGN.md. It is the yardstick the parity
+    /// tests measure the mod against - do not "improve" it.
+    /// </summary>
+    internal static class VanillaReference
+    {
+        internal static CullDecision Decide(IReadOnlyList<PenAnimal> ownedPets, int limit, int count, int minimumPetPopulation)
+        {
+            var census = HerdCensus.Count(ownedPets);
+            var targets = HerdTargets.Create(limit, limit / 2);
+
+            if (count < limit + 1) return new CullDecision(-1, CullReason.WithinLimit, census, targets);
+            if (count < minimumPetPopulation) return new CullDecision(-1, CullReason.BelowMinimumPopulation, census, targets);
+
+            int females = 0, males = 0, lastFemale = -1, lastMale = -1;
+            for (int i = 0; i < ownedPets.Count; i++)
+            {
+                if (!ownedPets[i].IsMature) continue;
+                if (ownedPets[i].IsFemale) { females++; lastFemale = i; }
+                else { males++; lastMale = i; }
+            }
+
+            int result = females <= males ? lastMale : lastFemale;
+            var reason = result < 0 ? CullReason.NoAdults
+                : ownedPets[result].IsFemale ? CullReason.FemaleChosen : CullReason.MaleChosen;
+            return new CullDecision(result, reason, census, targets);
         }
     }
 }

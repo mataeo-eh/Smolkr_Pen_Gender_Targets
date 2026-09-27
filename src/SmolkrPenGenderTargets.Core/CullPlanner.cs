@@ -4,26 +4,25 @@
 // patch on AnimalPen.GetSmolkrReadyForSlaughter calls Decide() instead of running
 // ASKA's own selection, for any pen where the player has turned gender targets on.
 //
-// How vanilla decides, for comparison (read out of the game binary; see
-// docs/DESIGN.md): once the pen holds MORE animals than the slaughter limit, ASKA
-// counts the grown-up females and males and slaughters one from whichever group
-// is larger, a tie going to the males. That steers every pen toward a 50/50 split
-// and has no notion of a target ratio - which is exactly what this rule replaces.
+// The rule is vanilla's rule with exactly one thing changed. Vanilla, read out of
+// the game binary (docs/DESIGN.md):
 //
-// The rule here:
+//   1. Slaughter only while the pen holds MORE animals than the slaughter limit.
+//      Every animal counts here, pups included.
+//   2. ...and never below the pen's minimum population.
+//   3. Only a grown-up can be slaughtered. Count the adult females and adult
+//      males (pups are not part of this comparison) and take one from the gender
+//      that has more; a tie goes to the males.
+//   4. Within that gender, take the LAST adult in the pen's list.
 //
-//   1. Respect the pen's minimum population, as vanilla does.
-//   2. Count each gender - adults only by default, pups too when countPups is on.
-//   3. A gender with more animals than its target has a surplus.
-//   4. Slaughter an ADULT of a surplus gender. If both have one, take the larger
-//      surplus; on a tie, a male, mirroring vanilla's tie rule.
-//   5. If the only surplus is made of pups, slaughter nothing and wait. Killing
-//      an adult of the other gender instead would move the pen further from the
-//      ratio the player asked for.
-//
-// Within the chosen gender the LAST matching animal in the pen's list is taken,
-// again mirroring vanilla, so turning targets on changes which gender goes and
-// nothing else about which individual.
+// This mod keeps 1, 2 and 4 word for word. Step 3 becomes: take one from the
+// gender that is furthest ABOVE ITS TARGET ("surplus" = adults - adults wanted),
+// a tie still going to the males. When the targets are an even split, the surplus
+// comparison is the same comparison vanilla makes (females - keep > males - keep
+// exactly when females > males), so an even split reproduces vanilla exactly -
+// the unit tests check this against a transcription of the vanilla method. The
+// only thing the player's targets change is where the pen settles: a chosen
+// ratio instead of 50/50.
 
 using System.Collections.Generic;
 
@@ -37,59 +36,42 @@ namespace SmolkrPenGenderTargets.Core
         /// Calls: <see cref="HerdCensus.Count"/>, <see cref="FindLastAdult"/>.
         /// </summary>
         /// <param name="animals">
-        /// Every animal in the pen, in the game's own order. Null is an empty pen.
+        /// The pen's smolkr, in the game's own order. Null is an empty pen.
         /// </param>
         /// <param name="targets">Adults of each gender the player wants to keep.</param>
-        /// <param name="minimumPopulation">
-        /// The pen's authored floor. Nothing is slaughtered while the pen holds
-        /// fewer animals than this, matching vanilla.
+        /// <param name="penPopulation">
+        /// How many animals the pen holds by the game's own count (its owned-pets
+        /// list, pups included). Usually animals.Count; passed separately because
+        /// the game also counts list entries it cannot read a gender from.
         /// </param>
-        /// <param name="countPups">
-        /// False (the default behaviour): targets count grown-ups only, so pups are
-        /// ignored until they mature and a breeding herd is never thinned to make
-        /// room for its own young. True: pups count toward their gender's target
-        /// too, closer to how vanilla's slaughter limit counts every animal.
-        /// </param>
+        /// <param name="minimumPopulation">The pen's authored population floor.</param>
         /// <returns>The decision, including the census and targets it was made from.</returns>
         public static CullDecision Decide(
-            IReadOnlyList<PenAnimal> animals, HerdTargets targets, int minimumPopulation, bool countPups)
+            IReadOnlyList<PenAnimal> animals, HerdTargets targets, int penPopulation, int minimumPopulation)
         {
             var census = HerdCensus.Count(animals);
 
-            if (census.Total < minimumPopulation)
+            // Steps 1 and 2, unchanged from vanilla and in vanilla's order.
+            if (penPopulation <= targets.SlaughterLimit)
+                return None(CullReason.WithinLimit, census, targets);
+            if (penPopulation < minimumPopulation)
                 return None(CullReason.BelowMinimumPopulation, census, targets);
 
-            int femaleSurplus = Counted(census, female: true, countPups) - targets.FemalesToKeep;
-            int maleSurplus = Counted(census, female: false, countPups) - targets.MalesToKeep;
+            // Step 3: vanilla compares adult counts; the mod compares each adult
+            // count against its target. Only a gender with an adult can be chosen.
+            bool femaleAvailable = census.AdultFemales > 0;
+            bool maleAvailable = census.AdultMales > 0;
+            if (!femaleAvailable && !maleAvailable)
+                return None(CullReason.NoAdults, census, targets);
 
-            // A surplus only helps if there is a grown-up of that gender to take.
-            bool femaleActionable = femaleSurplus > 0 && census.AdultFemales > 0;
-            bool maleActionable = maleSurplus > 0 && census.AdultMales > 0;
+            int femaleSurplus = census.AdultFemales - targets.FemalesToKeep;
+            int maleSurplus = census.AdultMales - targets.MalesToKeep;
+            bool takeFemale = femaleAvailable && (!maleAvailable || femaleSurplus > maleSurplus);
 
-            if (!femaleActionable && !maleActionable)
-            {
-                bool anySurplus = femaleSurplus > 0 || maleSurplus > 0;
-                return None(anySurplus ? CullReason.SurplusIsOnlyPups : CullReason.WithinTargets, census, targets);
-            }
-
-            // Both genders over target: the bigger surplus goes first. Equal
-            // surpluses go to the males, the same tie-break vanilla uses.
-            bool takeFemale = femaleActionable && (!maleActionable || femaleSurplus > maleSurplus);
-
+            // Step 4, unchanged.
             int victim = FindLastAdult(animals, takeFemale);
-            var reason = takeFemale ? CullReason.SurplusFemale : CullReason.SurplusMale;
+            var reason = takeFemale ? CullReason.FemaleChosen : CullReason.MaleChosen;
             return new CullDecision(victim, reason, census, targets);
-        }
-
-        /// <summary>
-        /// How many animals of a gender count toward its target.
-        /// Called by: <see cref="Decide"/>.
-        /// </summary>
-        private static int Counted(HerdCensus census, bool female, bool countPups)
-        {
-            int count = census.Adults(female);
-            if (countPups) count += census.Pups(female);
-            return count;
         }
 
         /// <summary>

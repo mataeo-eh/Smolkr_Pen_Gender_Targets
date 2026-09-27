@@ -101,28 +101,49 @@ Il2CppInterop's trampoline. Il2CppInterop 1.5.3 (the version in the profile)
 generates that write-back, and `Patches/SmolkrDeathPatch` exists to prove it in
 game. See the in-game test.
 
+## Pups: what vanilla does
+
+Checked with `scripts/disasm.ps1` (a `G` query for every method that edits
+`_ownedPets`, plus `DomesticSmolkr.Breed` and `Kennel.PetWrapper._OnPetFullyGrown`):
+
+- **A pup joins `_ownedPets` at birth.** `DomesticSmolkr.Breed` picks a random
+  entry from the pen's `tameableCreatures` (so a pup's gender is random), adds it
+  as an item to the pen's container, and `Kennel._AddDogBox` appends it to
+  `_ownedPets`.
+- **Adults stay in the list.** `_OnPetFullyGrown` only removes a grown animal
+  when the kennel's `releasePetsWhenFullyGrown` flag is set, which is the dog
+  kennel's behaviour, not the pen's.
+
+So vanilla's trigger, `_ownedPets.Count > slaughter limit`, **counts pups**. A
+pup can never be the victim, and the gender comparison counts adults only.
+
 ## The rule
 
-Implemented and unit-tested in `src/SmolkrPenGenderTargets.Core`.
+Implemented in `src/SmolkrPenGenderTargets.Core/CullPlanner.cs`. It is
+vanilla's method with one step changed:
 
-- The player sets **females to keep** per pen. **Males to keep = slaughter
-  limit - females to keep**, so the targets can never disagree with the game's
-  own limit.
-- A gender whose adult count is over its target has a **surplus**. An adult of
-  a surplus gender is slaughtered. When both genders are over target, the larger
-  surplus goes first, and ties go to males (vanilla's tie-break).
-- **Pups are ignored by default** and judged once grown. Counting them
-  (config `CountPupsTowardTargets`) is closer to vanilla's limit, but a newborn
-  male then gets the herd's only adult male culled while the pup grows up.
-- If the only surplus is pups, **nothing** is slaughtered. Killing an adult of
-  the other gender would move the pen further from the requested ratio.
-- The pen's `minimumPetPopulation` floor is respected, as in vanilla.
-- Within the chosen gender, the **last** adult in the pen's list goes, as in
-  vanilla. Turning targets on changes which gender dies and nothing else.
+| Step | Vanilla | This mod |
+| --- | --- | --- |
+| When | pen population (pups included) > limit, and >= minimum population | identical |
+| Who is eligible | adults only | identical |
+| Which gender | the one with more adults; tie -> male | the one furthest above its target (adults - adults wanted); tie -> male |
+| Which individual | last adult of that gender in `_ownedPets` | identical |
 
-With adults-only counting, a surplus can only exist when adults outnumber the
-limit, which means the pen is over the limit. Vanilla's "pen is over the limit"
-precondition still holds automatically.
+The player sets **females to keep** per pen. **Males to keep = slaughter limit -
+females to keep**, so the targets can never disagree with the game's own limit.
+
+The unit tests prove the "identical" rows against `VanillaReference`, a line-by-
+line transcription of the decompiled method. On 20,000 random pens, even-split
+targets pick the **same individual** as vanilla. For any targets, *whether* a
+slaughter happens always matches vanilla. The only effect of the targets is the
+ratio the pen settles at.
+
+A consequence worth knowing, inherited from vanilla: a pen sitting exactly at
+its limit is never thinned, even if its ratio is off. The ratio corrects itself
+as births push the pen over the limit. A newborn also counts, so with a herd
+exactly on target (say 5F/1M at limit 6), a birth puts the pen over with both
+genders at surplus 0. Vanilla's tie-break then takes the adult **male**, and the
+herd goes without a breeding male until a male pup grows up.
 
 ## Saving
 
@@ -133,19 +154,47 @@ key, `spgt_femalesToKeep`, only for pens with targets on. Vanilla reads its keys
 by name, so the extra key is harmless if the mod is removed: the pen reverts to
 vanilla.
 
-## The panel
+## The "Females to keep" row
 
-`WorkstationTaskPanel.SetPanel` / `RefreshPanel` postfixes note when the panel
-is showing an `AnimalSlaughterTaskData` (whose `SmolkrPen` names the pen). An
-IMGUI window is drawn beside it while that panel stays active and on that task.
-IMGUI was chosen over injecting a row into ASKA's task panel for the same reason
-AskaEnemyScaling chose it: it cannot be broken by a change to the game's UI
-prefabs, and it can be built without running the game.
+**Which panel.** The workstation menu edits tasks in `SSSGame.UI.TaskDataPanel`,
+driven by `WorkstationMenu.CreateTaskDataPanel` and `CreateOrEditTaskPage.Show`.
+(0.1.0 hooked `WorkstationTaskPanel`; an `X` query shows nothing in the game
+calls it any more, so its IMGUI window could never appear.)
+
+**How the slaughter limit is drawn.** `TaskDataPanel._SetQuantity`, for an
+`AnimalSlaughterTaskData`, fills the panel's `_quantityDiv`: it sets the
+`_quantityControlPanel` (an `IncreaseDecreasePanel`) range from
+`GetQuantityRange()`, sets its value to the limit, and sets `_quantityDivTitle` to
+`Loc("misc.smolkrPen_SlaughterTaskName")`.
+
+**The clone.** A postfix on `_SetQuantity` clones `_quantityDiv` into a second
+row. What makes the clone safe:
+
+- `TaskDataPanel.Start` attaches `_onQuantityChanged` to the limit control with
+  `AddListener`, a *runtime* listener. `Instantiate` does not copy runtime
+  listeners, so the clone cannot move the slaughter limit. Serialized listeners
+  on the clone are switched off as well.
+- `IncreaseDecreasePanel.Awake` registers the control with its
+  `IncreaseDecreaseGroup`, and `set_Value` updates that group. The clone is built
+  under an inactive holder and its `group` is cleared before `Awake` runs.
+- `IncreaseDecreasePanel.Setup` clears and re-adds its own button listeners, so
+  the clone's buttons drive the clone.
+- `SetValue` invokes listeners, *then* calls `RefreshAutomaticText`, which rewrites
+  the number. A postfix on `RefreshAutomaticText` writes "Off" for the row's -1.
+
+**Placement.** The prefab layout is not in the binary. `CreateOrEditTaskPage`
+keeps a `_quantityDivInitialPos` and moves the div for markets, which suggests
+absolute positioning. So the row goes directly after the div in sibling order,
+and if the parent has no `LayoutGroup` it is also positioned one row-height
+below. The first build logs the parent's children (`SPGT event=row_layout`), and
+`RowOffsetX/Y` in the config adjust the position without a rebuild.
 
 ## Known limits
 
 - **Multiplayer:** villager AI runs on the host, and the targets live in the
-  host's save. A client's panel changes only the client's copy.
+  host's save. A client's row changes only the client's copy.
 - **Kyckling pens** are also `AnimalPen`s. The mod treats them identically. If
   kycklings carry no `DomesticSmolkr` component, both vanilla and the mod
   slaughter nothing there, so turning targets on cannot make it worse.
+- **The row's text is English.** The game's own strings are localized; this one
+  is not.
