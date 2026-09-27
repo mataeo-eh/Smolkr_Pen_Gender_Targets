@@ -1,0 +1,33 @@
+<Project>
+
+  <!--
+    Shared build settings.
+
+    The mod compiles against two sets of DLLs that are NOT redistributable and so
+    are not checked into this repository:
+
+      * BepInEx 6 core assemblies (BepInEx.Core, BepInEx.Unity.IL2CPP, 0Harmony,
+        Il2CppInterop.Runtime, ...)
+      * Il2CppInterop "interop" assemblies generated from ASKA's own IL2CPP
+        binary (Assembly-CSharp.dll, SandSailorStudio.dll, UnityEngine.*.dll)
+
+    Both are produced on the player's machine by BepInEx the first time the game
+    launches with it installed. The paths below point at a Thunderstore Mod
+    Manager profile by default; override them on the command line if yours live
+    elsewhere:
+
+      dotnet build -p:AskaProfileDir="D:\path\to\profile"
+  -->
+
+  <PropertyGroup>
+    <!-- Keep local workstation paths out of portable PDB references embedded in DLLs. -->
+    <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
+
+    <!-- Root of the BepInEx profile that contains core/ and interop/. -->
+    <AskaProfileDir Condition="'$(AskaProfileDir)' == ''">$(APPDATA)\Thunderstore Mod Manager\DataFolder\ASKA\profiles\JustMe</AskaProfileDir>
+
+    <BepInExCoreDir Condition="'$(BepInExCoreDir)' == ''">$(AskaProfileDir)\BepInEx\core</BepInExCoreDir>
+    <AskaInteropDir Condition="'$(AskaInteropDir)' == ''">$(AskaProfileDir)\BepInEx\interop</AskaInteropDir>
+  </PropertyGroup>
+
+</Project>

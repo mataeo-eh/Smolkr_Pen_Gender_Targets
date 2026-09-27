@@ -1,0 +1,9 @@
+{
+  "name": "Smolkr_Pen_Gender_Targets",
+  "version_number": "0.0.0",
+  "website_url": "",
+  "description": "Choose how many female and male smolkr each pen keeps. Villagers slaughter from whichever gender is over its target instead of from the majority, so a breeding herd holds its ratio.",
+  "dependencies": [
+    "BepInEx-BepInExPack_IL2CPP-6.0.755"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "_comment": [
+    "Per-mod configuration read by the shared scripts in ../../scripts/.",
+    "All paths are relative to this file's directory (the mod repo root) and use",
+    "forward slashes. See ../AskaEnemyScaling/mod.json for a field-by-field",
+    "explanation of every entry."
+  ],
+
+  "name": "Smolkr_Pen_Gender_Targets",
+  "displayName": "Smolkr Pen Gender Targets",
+
+  "build": {
+    "pluginProject": "src/SmolkrPenGenderTargets/SmolkrPenGenderTargets.csproj",
+    "configuration": "Release",
+    "profileProperty": "AskaProfileDir",
+    "interopProperty": "AskaInteropDir",
+    "assemblies": [
+      "SmolkrPenGenderTargets.dll",
+      "SmolkrPenGenderTargets.Core.dll"
+    ]
+  },
+
+  "version": {
+    "sourceFile": "src/SmolkrPenGenderTargets/Plugin.cs",
+    "constant": "PluginVersion"
+  },
+
+  "game": {
+    "profileDir": "%APPDATA%/Thunderstore Mod Manager/DataFolder/ASKA/profiles/JustMe",
+    "installDir": "%ProgramFiles(x86)%/Steam/steamapps/common/ASKA",
+    "pluginsFolder": "SmolkrPenGenderTargets"
+  },
+
+  "log": {
+    "match": ["Smolkr Pen Gender Targets", "SmolkrPenGenderTargets", "aska.smolkr.pen.gender.targets", "SPGT"]
+  },
+
+  "thunderstore": {
+    "team": "Aska_Team",
+    "communities": ["aska"],
+    "categories": [],
+    "packagingDir": "packaging"
+  }
+}

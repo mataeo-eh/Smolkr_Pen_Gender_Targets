@@ -1,0 +1,21 @@
+# Build output.
+bin/
+obj/
+.vs/
+*.user
+
+# Credentials. The Thunderstore service account token lives in the harness root
+# (outside this repository) so one credential serves every mod. These patterns
+# are a safety net: a token that lands in this tree by accident must not be
+# committed, because it grants publish rights to the Thunderstore team.
+.thunderstore.token
+*.token
+.env
+
+# Packaged zips and log reports are written into the harness (dist/<ModName>,
+# logs/<ModName>), not in here. Kept as a safety net in case anything is run
+# with an output directory pointed at this repository.
+dist/
+logs/
+*.zip
+*.log

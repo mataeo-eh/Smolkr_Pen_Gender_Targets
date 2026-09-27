@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SmolkrPenGenderTargets.Core/SmolkrPenGenderTargets.Core.csproj" />
+    <Project Path="src/SmolkrPenGenderTargets/SmolkrPenGenderTargets.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SmolkrPenGenderTargets.Core.Tests/SmolkrPenGenderTargets.Core.Tests.csproj" />
+  </Folder>
+</Solution>

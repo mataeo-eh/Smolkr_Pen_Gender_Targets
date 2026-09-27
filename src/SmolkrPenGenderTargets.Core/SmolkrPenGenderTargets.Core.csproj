@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    SmolkrPenGenderTargets.Core
+
+    The mod's slaughter decision, deliberately kept free of any Unity, BepInEx or
+    ASKA reference. Given "these animals are in the pen, and the player wants to
+    keep this many of each gender", it answers "which one, if any, goes next".
+
+    Keeping it separate means the rule can be unit-tested on a normal machine
+    without launching the game. The game-facing project (SmolkrPenGenderTargets)
+    reads the real pen contents and hands them to this library.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>SmolkrPenGenderTargets.Core</AssemblyName>
+    <RootNamespace>SmolkrPenGenderTargets.Core</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>
