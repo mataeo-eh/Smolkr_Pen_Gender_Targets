@@ -29,6 +29,10 @@
 // of adult females to keep. Stepping below 0 turns targets off; stepping up
 // from off turns them on.
 //
+// The div is the whole quantity page, so the clone also copies its materials
+// list (the panel's _materialsDiv). A slaughter task has no materials, which
+// left an empty grey box in the row; the clone's copy is hidden.
+//
 // Where the row goes: if the div's parent arranges its children with a layout
 // group, the row is simply inserted after the div. Otherwise the game places the
 // div by position (CreateOrEditTaskPage moves it for markets), and the row is
@@ -291,6 +295,8 @@ internal static class FemalesToKeepRow
             return null;
         }
 
+        HideClonedMaterials(panel, templateDiv, row);
+
         control.group = null;
         SilencePersistentListeners(control.OnValueChanged);
         SilencePersistentListeners(control.OnIncrease);
@@ -337,6 +343,30 @@ internal static class FemalesToKeepRow
         float height = templateRect.rect.height;
         rowRect.anchoredPosition = templateRect.anchoredPosition +
                                    new Vector2(Plugin.RowOffsetX.Value, -(height + RowSpacing) + Plugin.RowOffsetY.Value);
+    }
+
+    /// <summary>
+    /// Hides the clone's copy of the materials list. The quantity div also holds
+    /// the task's materials list (the panel's <c>_materialsDiv</c>), which a
+    /// slaughter task leaves empty, so in the row it showed as a bare grey box
+    /// between the smolkr preview and the control. Found by its path inside the
+    /// original div, like the control, so nothing depends on its name.
+    /// </summary>
+    /// <param name="panel">The task panel the row belongs to.</param>
+    /// <param name="templateDiv">The slaughter limit's div the row was cloned from.</param>
+    /// <param name="row">The clone.</param>
+    private static void HideClonedMaterials(TaskDataPanel panel, GameObject templateDiv, GameObject row)
+    {
+        var materials = panel._materialsDiv;
+        if (materials == null) return;
+
+        // null when the materials list is not inside the div, e.g. after a game
+        // update moves it; then the clone has no copy to hide.
+        string materialsPath = RelativePath(templateDiv.transform, materials.transform);
+        if (string.IsNullOrEmpty(materialsPath)) return;
+
+        var clonedMaterials = FindRelative(row.transform, materialsPath);
+        if (clonedMaterials != null) clonedMaterials.gameObject.SetActive(false);
     }
 
     /// <summary>

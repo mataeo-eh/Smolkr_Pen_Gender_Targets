@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0
+
+- First public release.
+- The Females to keep row no longer shows an empty grey box between the smolkr
+  preview and the control. It was the task's materials list, copied from the
+  slaughter limit's row, and a slaughter task has no materials.
+
 ## 0.2.0
 
 - The target is now a **Females to keep** row in the pen's own slaughter task,

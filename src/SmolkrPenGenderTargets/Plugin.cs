@@ -29,7 +29,7 @@ public sealed class Plugin : BasePlugin
 {
     public const string PluginGuid = "aska.smolkr.pen.gender.targets";
     public const string PluginName = "Smolkr Pen Gender Targets";
-    public const string PluginVersion = "0.2.0";
+    public const string PluginVersion = "1.0.0";
 
     internal static new ManualLogSource Log { get; private set; }
 
