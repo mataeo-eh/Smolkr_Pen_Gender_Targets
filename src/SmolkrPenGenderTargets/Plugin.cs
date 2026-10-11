@@ -3,14 +3,22 @@
 // Role in the larger system: the BepInEx entry point. Binds the config file and
 // installs every Harmony patch in this assembly.
 //
-// What the mod does, in one paragraph: ASKA's smolkr pen has a single
-// "slaughter limit". When the pen goes over it (pups included), vanilla
+// What the mod does, in one paragraph: ASKA's smolkr and kyckling pens have a
+// single "slaughter limit". When a pen goes over it (young included), vanilla
 // slaughters an adult from whichever gender currently has more adults, which
 // drifts every pen toward a 50/50 split. This mod adds a per-pen "females to
 // keep" row to the slaughter task (males to keep is the limit minus that) and,
 // for pens where the player sets it, slaughters from whichever gender is
-// furthest above its target instead. Nothing else about vanilla's slaughtering
-// changes. See docs/DESIGN.md for how the vanilla code was read.
+// furthest above its target, counting young animals too. If the surplus gender
+// has no adult available, slaughter waits. See docs/DESIGN.md.
+//
+// Smolkr and kyckling pens are the same game class (AnimalPen, told apart only
+// by its kycklingPen flag) and slaughter through the same method, so every
+// patch here serves both kinds of pen with no per-kind code.
+//
+// The GUID, assembly names and save key still say "smolkr": they are the
+// identity of the already-published 1.0.0, and changing them would break
+// updates, config files and saved targets.
 //
 // Depends on: Runtime/* (pen reading, per-pen settings, logging),
 // Patches/* (the Harmony patches), UI/FemalesToKeepRow (the task panel row).
@@ -28,8 +36,8 @@ namespace SmolkrPenGenderTargets;
 public sealed class Plugin : BasePlugin
 {
     public const string PluginGuid = "aska.smolkr.pen.gender.targets";
-    public const string PluginName = "Smolkr Pen Gender Targets";
-    public const string PluginVersion = "1.0.0";
+    public const string PluginName = "Smolkr and Kyckling Pen Gender Limits";
+    public const string PluginVersion = "1.1.1";
 
     internal static new ManualLogSource Log { get; private set; }
 
@@ -73,11 +81,11 @@ public sealed class Plugin : BasePlugin
     private void BindConfig()
     {
         Enabled = Config.Bind("General", "Enabled", true,
-            "Master switch. When false, every smolkr pen slaughters exactly as in vanilla, " +
+            "Master switch. When false, every smolkr and kyckling pen slaughters exactly as in vanilla, " +
             "whatever each pen's gender targets are set to. The targets themselves are kept.");
 
         ShowRow = Config.Bind("Interface", "ShowRow", true,
-            "Add a 'Females to keep' row under the slaughter limit in a smolkr pen's slaughter task. " +
+            "Add a 'Females to keep' row under the slaughter limit in a smolkr or kyckling pen's slaughter task. " +
             "Turning this off hides the row only; pens keep using the targets they already have.");
 
         RowOffsetX = Config.Bind("Interface", "RowOffsetX", 0f,
@@ -107,7 +115,7 @@ public sealed class Plugin : BasePlugin
         catch (Exception e)
         {
             Log.LogError(
-                "Failed to install Harmony patches - smolkr pens will behave as vanilla. " +
+                "Failed to install Harmony patches - smolkr and kyckling pens will behave as vanilla. " +
                 "This usually means ASKA updated and the interop assemblies need regenerating. " +
                 $"Details: {e}");
         }

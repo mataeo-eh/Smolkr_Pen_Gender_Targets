@@ -7,7 +7,7 @@
   ],
 
   "name": "Smolkr_Pen_Gender_Targets",
-  "displayName": "Smolkr Pen Gender Targets",
+  "displayName": "Smolkr and Kyckling Pen Gender Limits",
 
   "build": {
     "pluginProject": "src/SmolkrPenGenderTargets/SmolkrPenGenderTargets.csproj",
@@ -32,7 +32,7 @@
   },
 
   "log": {
-    "match": ["Smolkr Pen Gender Targets", "SmolkrPenGenderTargets", "aska.smolkr.pen.gender.targets", "SPGT"]
+    "match": ["Smolkr and Kyckling Pen Gender Limits", "Smolkr Pen Gender Targets","SmolkrPenGenderTargets", "aska.smolkr.pen.gender.targets", "SPGT"]
   },
 
   "thunderstore": {

@@ -13,16 +13,16 @@ using System;
 
 namespace SmolkrPenGenderTargets.Core
 {
-    /// <summary>How many adults of each gender a pen should keep.</summary>
+    /// <summary>How many animals of each gender a pen should keep, including pups.</summary>
     public readonly struct HerdTargets
     {
         /// <summary>The game's own slaughter limit for the pen, never negative.</summary>
         public int SlaughterLimit { get; }
 
-        /// <summary>Adult females to keep, clamped to 0..<see cref="SlaughterLimit"/>.</summary>
+        /// <summary>Females to keep, young included, clamped to 0..<see cref="SlaughterLimit"/>.</summary>
         public int FemalesToKeep { get; }
 
-        /// <summary>Adult males to keep: whatever the limit has left after the females.</summary>
+        /// <summary>Males to keep, young included: whatever the limit has left after the females.</summary>
         public int MalesToKeep => SlaughterLimit - FemalesToKeep;
 
         /// <summary>

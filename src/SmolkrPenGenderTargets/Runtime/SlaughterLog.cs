@@ -40,6 +40,18 @@ internal static class SlaughterLog
         Plugin.Log?.LogInfo($"SPGT event={eventName} {details}");
 
     /// <summary>
+    /// Names a pen in a log line: its native pointer plus whether it is a smolkr
+    /// or kyckling pen. Both are the same AnimalPen class, told apart only by the
+    /// game's own kycklingPen flag, so the rest of the mod never needs to know
+    /// which kind it has. The kind is logged so each can be checked in game.
+    /// Called by: every log line that names a pen.
+    /// </summary>
+    /// <param name="pen">The pen to describe.</param>
+    /// <returns>For example "pen=23F75307540 kind=kyckling".</returns>
+    internal static string DescribePen(AnimalPen pen) =>
+        $"pen={pen.Pointer.ToInt64():X} kind={(pen.kycklingPen ? "kyckling" : "smolkr")}";
+
+    /// <summary>
     /// Records that the patch chose a smolkr (or chose none) for a pen.
     /// Called by: Patches.SlaughterSelectionPatch.
     /// </summary>
@@ -54,7 +66,7 @@ internal static class SlaughterLog
         var census = decision.Census;
         var targets = decision.Targets;
         Write(victim != null ? "slaughter_selected" : "slaughter_declined",
-            $"pen={pen.Pointer.ToInt64():X} reason={decision.Reason} " +
+            $"{DescribePen(pen)} reason={decision.Reason} " +
             $"victim_female={(victim != null ? victim.isFemale.ToString() : "-")} " +
             $"adults_f={census.AdultFemales} adults_m={census.AdultMales} " +
             $"pups_f={census.FemalePups} pups_m={census.MalePups} " +
@@ -72,7 +84,7 @@ internal static class SlaughterLog
                            && selected == smolkr.Pointer;
 
         Write(wasSelected ? "slaughter_confirmed" : "smolkr_died_unselected",
-            $"pen={pen.Pointer.ToInt64():X} female={smolkr.isFemale}");
+            $"{DescribePen(pen)} female={smolkr.isFemale}");
 
         // Whatever happens next is a fresh selection, so the next one is always written.
         if (wasSelected) SelectedSmolkrByPen.Remove(pen.Pointer);

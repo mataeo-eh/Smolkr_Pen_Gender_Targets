@@ -12,6 +12,10 @@
 // nothing else in the game makes either decision (docs/DESIGN.md has the
 // disassembly this is based on).
 //
+// Kyckling pens go through this same method: AnimalPen.Awake gives every pen,
+// kyckling or not, the same SmolkrPenSlaughterQuest (the kycklingPen flag only
+// picks its idle quest). So this one patch covers both kinds of pen.
+//
 // For a pen with gender targets on, the prefix answers in vanilla's place using
 // PenReader.Plan. For every other pen - and whenever anything goes wrong - it
 // returns true and the untouched vanilla method runs.

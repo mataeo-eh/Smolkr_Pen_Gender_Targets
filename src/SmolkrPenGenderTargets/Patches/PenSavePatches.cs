@@ -82,7 +82,7 @@ internal static class PenDeserializePatch
             if (stored == null) return;
 
             PenTargetStore.Set(__instance, stored.value);
-            SlaughterLog.Write("targets_loaded", $"pen={__instance.Pointer.ToInt64():X} keep_f={stored.value}");
+            SlaughterLog.Write("targets_loaded", $"{SlaughterLog.DescribePen(__instance)} keep_f={stored.value}");
         }
         catch (Exception e)
         {

@@ -27,11 +27,14 @@ namespace SmolkrPenGenderTargets.Core
         /// </summary>
         NoAdults,
 
-        /// <summary>Adult females are furthest above their target; an adult female was chosen.</summary>
+        /// <summary>Females (young included) have the largest eligible surplus; an adult female was chosen.</summary>
         FemaleChosen,
 
-        /// <summary>Adult males are furthest above their target (or tied); an adult male was chosen.</summary>
+        /// <summary>Males (young included) have the largest eligible surplus (or tied); an adult male was chosen.</summary>
         MaleChosen,
+
+        /// <summary>No gender above its target has an adult available to slaughter.</summary>
+        NoSurplusAdults,
     }
 
     /// <summary>The outcome of one slaughter decision.</summary>
@@ -75,12 +78,14 @@ namespace SmolkrPenGenderTargets.Core
                     return "Nothing - the pen is below its minimum population.";
                 case CullReason.NoAdults:
                     return "Nothing - over the limit, but only pups are left.";
+                case CullReason.NoSurplusAdults:
+                    return "Nothing - the surplus gender has no adult available to slaughter.";
                 case CullReason.FemaleChosen:
-                    return $"An adult female ({Census.AdultFemales} adult females for {Targets.FemalesToKeep} wanted, " +
-                           $"{Census.AdultMales} adult males for {Targets.MalesToKeep} wanted).";
+                    return $"An adult female ({Census.AdultFemales + Census.FemalePups} females for {Targets.FemalesToKeep} wanted, " +
+                           $"{Census.AdultMales + Census.MalePups} males for {Targets.MalesToKeep} wanted, young included).";
                 case CullReason.MaleChosen:
-                    return $"An adult male ({Census.AdultMales} adult males for {Targets.MalesToKeep} wanted, " +
-                           $"{Census.AdultFemales} adult females for {Targets.FemalesToKeep} wanted).";
+                    return $"An adult male ({Census.AdultMales + Census.MalePups} males for {Targets.MalesToKeep} wanted, " +
+                           $"{Census.AdultFemales + Census.FemalePups} females for {Targets.FemalesToKeep} wanted, young included).";
                 default:
                     return Reason.ToString();
             }

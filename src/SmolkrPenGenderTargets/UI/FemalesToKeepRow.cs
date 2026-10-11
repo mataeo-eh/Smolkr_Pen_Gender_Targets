@@ -26,7 +26,7 @@
 //     postfixed and the row's own text is written after it.
 //
 // Values: -1 means "off" (vanilla behaviour for the pen), 0..limit is the number
-// of adult females to keep. Stepping below 0 turns targets off; stepping up
+// of females to keep, young included. Stepping below 0 turns targets off; stepping up
 // from off turns them on.
 //
 // The div is the whole quantity page, so the clone also copies its materials
@@ -217,7 +217,7 @@ internal static class FemalesToKeepRow
 
             RefreshTitle(state);
             SlaughterLog.Write("targets_changed",
-                $"pen={pen.Pointer.ToInt64():X} keep_f={(value <= OffValue ? "off" : value.ToString())} limit={CurrentLimit(state)}");
+                $"{SlaughterLog.DescribePen(pen)} keep_f={(value <= OffValue ? "off" : value.ToString())} limit={CurrentLimit(state)}");
         }
         catch (Exception e)
         {

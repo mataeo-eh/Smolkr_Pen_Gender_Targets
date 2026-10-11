@@ -117,33 +117,15 @@ Checked with `scripts/disasm.ps1` (a `G` query for every method that edits
 So vanilla's trigger, `_ownedPets.Count > slaughter limit`, **counts pups**. A
 pup can never be the victim, and the gender comparison counts adults only.
 
-## The rule
+## The rule (1.1.1)
 
-Implemented in `src/SmolkrPenGenderTargets.Core/CullPlanner.cs`. It is
-vanilla's method with one step changed:
+The population gates and last-adult ordering remain as above. Gender surplus is now adults plus pups minus the gender target. Only a gender with positive surplus and an adult available can be selected. The larger eligible surplus goes first; ties go to males. If no surplus gender has an adult, slaughter waits for maturation.
 
-| Step | Vanilla | This mod |
-| --- | --- | --- |
-| When | pen population (pups included) > limit, and >= minimum population | identical |
-| Who is eligible | adults only | identical |
-| Which gender | the one with more adults; tie -> male | the one furthest above its target (adults - adults wanted); tie -> male |
-| Which individual | last adult of that gender in `_ownedPets` | identical |
+At 5 adult females and 1 adult male, a female pup selects a female; a male pup selects the male. The latter deliberately permits replacing the only breeding male with his pup. No breeding-adult minimum is imposed.
 
-The player sets **females to keep** per pen. **Males to keep = slaughter limit -
-females to keep**, so the targets can never disagree with the game's own limit.
+A pen at its limit is still left alone, regardless of ratio. A pen already missing a gender needs that gender added; the mod does not change births or spawn animals.
 
-The unit tests prove the "identical" rows against `VanillaReference`, a line-by-
-line transcription of the decompiled method. On 20,000 random pens, even-split
-targets pick the **same individual** as vanilla. For any targets, *whether* a
-slaughter happens always matches vanilla. The only effect of the targets is the
-ratio the pen settles at.
-
-A consequence worth knowing, inherited from vanilla: a pen sitting exactly at
-its limit is never thinned, even if its ratio is off. The ratio corrects itself
-as births push the pen over the limit. A newborn also counts, so with a herd
-exactly on target (say 5F/1M at limit 6), a birth puts the pen over with both
-genders at surplus 0. Vanilla's tie-break then takes the adult **male**, and the
-herd goes without a breeding male until a male pup grows up.
+Tests cover both newborn genders, waiting when the surplus gender has only pups, zero targets, and randomized eligibility checks. Even-split parity with vanilla applies to fully readable adult-only pens; mixed-age selection deliberately differs.
 
 ## Saving
 
@@ -189,12 +171,33 @@ and if the parent has no `LayoutGroup` it is also positioned one row-height
 below. The first build logs the parent's children (`SPGT event=row_layout`), and
 `RowOffsetX/Y` in the config adjust the position without a rebuild.
 
+## Kyckling pens
+
+Since 1.1.0 the mod is named for kyckling pens as well. They needed no code of
+their own, because in the game they are not a separate kind of building:
+
+- A kyckling pen is an `AnimalPen` with `bool kycklingPen` (offset `0x2B8`) set.
+  There is no kyckling pen class and no kyckling animal class. The only
+  kyckling-specific type in `Assembly-CSharp` is `KycklingPenIdleQuest`.
+- `AnimalPen.Awake` reads `kycklingPen` once, to choose the idle quest
+  (`KycklingPenIdleQuest` instead of `SmolkrPenIdleQuest`). Every pen then gets
+  the same `SmolkrPenHarvestQuest`, `SmolkrPenSlaughterQuest` and
+  `SmolkrPenComplaintQuest`, whatever the flag says.
+- So a kyckling pen's villager runs the same `FSM_Slaughter`, which calls the same
+  `AnimalPen.GetSmolkrReadyForSlaughter`, and its slaughter task is the same
+  `AnimalSlaughterTaskData` drawn by the same `TaskDataPanel._SetQuantity`.
+- That method only accepts animals with a `DomesticSmolkr` component, and
+  `DomesticSmolkr.isFemale` is the only gender field in the game. Vanilla
+  kyckling pens do slaughter, so kycklings carry `DomesticSmolkr` too. This is an
+  inference from the code, not seen directly; the in-game test confirms it.
+
+Every patch therefore already fires for kyckling pens. The only per-kind code is
+`SlaughterLog.DescribePen`, which adds `kind=smolkr` or `kind=kyckling` to log
+lines so each kind can be checked separately.
+
 ## Known limits
 
 - **Multiplayer:** villager AI runs on the host, and the targets live in the
   host's save. A client's row changes only the client's copy.
-- **Kyckling pens** are also `AnimalPen`s. The mod treats them identically. If
-  kycklings carry no `DomesticSmolkr` component, both vanilla and the mod
-  slaughter nothing there, so turning targets on cannot make it worse.
 - **The row's text is English.** The game's own strings are localized; this one
   is not.

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.1
+
+- Fixed births causing a 5-female/1-male pen to slaughter its only male and end up with six females. Young animals now count toward their gender's target as well as the population limit.
+- Only slaughter adults from a gender above its target. If that gender has only young animals, wait for them to mature rather than slaughter the other gender. A male birth can replace the existing adult male with the male pup.
+- Existing pen targets and saves remain compatible. Pens already missing a gender still need an animal of that gender added.
+
+## 1.1.0
+
+- Renamed to **Smolkr and Kyckling Pen Gender Limits**. Kyckling pens get the
+  same Females to keep row and slaughter rule as smolkr pens. The config file,
+  package id and saved per-pen settings are unchanged, so this updates in place.
+- Log lines that name a pen now say whether it is a smolkr or kyckling pen
+  (`kind=`).
+
 ## 1.0.0
 
 - First public release.

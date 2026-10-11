@@ -1,4 +1,14 @@
-# In-game test for 0.2.0
+# In-game tests
+
+## Newborn regression (1.1.1)
+
+With a limit of 6 and female target 5, start with 5 adult females and 1 adult male.
+
+- A female pup should produce `FemaleChosen`, followed by a confirmed female death. After maturation the pen should be 5F/1M.
+- A male pup should produce `MaleChosen`, even when this removes the only adult male. After maturation the pen should be 5F/1M.
+- With 5 adult females and 2 male pups, expect `NoSurplusAdults` and no slaughter until a male matures. It must not slaughter a female to make room.
+
+These are gameplay checks; automated core tests do not confirm native game behavior.
 
 `0.2.0` has been built, unit-tested, and statically checked against the
 Test_Mods profile's interop assemblies. It has **not** been run in game. This
@@ -54,9 +64,9 @@ After the villager works, run:
 Expected, for the same `pen=`:
 
 ```text
-SPGT event=targets_changed pen=... keep_f=5 limit=6
-SPGT event=slaughter_selected pen=... reason=MaleChosen victim_female=False ...
-SPGT event=slaughter_confirmed pen=... female=False
+SPGT event=targets_changed pen=... kind=smolkr keep_f=5 limit=6
+SPGT event=slaughter_selected pen=... kind=smolkr reason=MaleChosen victim_female=False ...
+SPGT event=slaughter_confirmed pen=... kind=smolkr female=False
 ```
 
 | Log shows | Meaning |
@@ -73,6 +83,30 @@ SPGT event=slaughter_confirmed pen=... female=False
 2. Reload the world. The log should show
    `SPGT event=targets_loaded pen=... keep_f=<your number>`.
 3. Reopen the slaughter task. The row should show the same number.
+
+## 4. Kyckling pen (1.1.0)
+
+Kyckling pens share every line of code with smolkr pens (see DESIGN.md,
+"Kyckling pens"), so this is steps 1 to 3 again in a kyckling pen. Every log
+line that names a pen now carries `kind=`; for this pen it must read
+`kind=kyckling`.
+
+1. Open a kyckling pen's slaughter task. The **Females to keep** row should be
+   under its slaughter limit and behave as in step 1.
+2. Set up an over-limit pen as in step 2 and let a villager work it. Expected:
+
+   ```text
+   SPGT event=targets_changed pen=... kind=kyckling keep_f=5 limit=6
+   SPGT event=slaughter_selected pen=... kind=kyckling reason=MaleChosen victim_female=False ...
+   SPGT event=slaughter_confirmed pen=... kind=kyckling female=False
+   ```
+
+3. Save, reload, and check `targets_loaded ... kind=kyckling`.
+
+If the row appears but a kyckling pen that is over its limit only ever logs
+`slaughter_declined` with `adults_f=0 adults_m=0`, kycklings do not carry
+`DomesticSmolkr` after all. Report that: the mod would need a second animal
+reader for them.
 
 ## Undo
 

@@ -14,6 +14,11 @@
 //   * maturity is Pet._mature and gender is DomesticSmolkr.isFemale.
 // Pups are recorded as well as adults so the log can show a full head count;
 // the planner itself only ever chooses an adult, as vanilla does.
+//
+// Kyckling pens are read by exactly this code. A kyckling pen is the same
+// AnimalPen class (only its kycklingPen flag differs), and vanilla's selection
+// method - the one this mirrors - is the only slaughter selection any pen has,
+// so kycklings carry the same DomesticSmolkr component that holds isFemale.
 
 using System.Collections.Generic;
 using SmolkrPenGenderTargets.Core;

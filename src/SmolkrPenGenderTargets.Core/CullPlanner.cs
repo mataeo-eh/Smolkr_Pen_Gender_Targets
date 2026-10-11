@@ -15,14 +15,10 @@
 //      that has more; a tie goes to the males.
 //   4. Within that gender, take the LAST adult in the pen's list.
 //
-// This mod keeps 1, 2 and 4 word for word. Step 3 becomes: take one from the
-// gender that is furthest ABOVE ITS TARGET ("surplus" = adults - adults wanted),
-// a tie still going to the males. When the targets are an even split, the surplus
-// comparison is the same comparison vanilla makes (females - keep > males - keep
-// exactly when females > males), so an even split reproduces vanilla exactly -
-// the unit tests check this against a transcription of the vanilla method. The
-// only thing the player's targets change is where the pen settles: a chosen
-// ratio instead of 50/50.
+// The mod keeps the population gates and last-adult ordering, but compares
+// total animals of each gender (including pups) against their target. Only an
+// over-target gender with an adult is eligible; otherwise slaughter waits.
+// A tie between eligible surplus genders still goes to males.
 
 using System.Collections.Generic;
 
@@ -38,7 +34,7 @@ namespace SmolkrPenGenderTargets.Core
         /// <param name="animals">
         /// The pen's smolkr, in the game's own order. Null is an empty pen.
         /// </param>
-        /// <param name="targets">Adults of each gender the player wants to keep.</param>
+        /// <param name="targets">Animals of each gender the player wants to keep, including pups.</param>
         /// <param name="penPopulation">
         /// How many animals the pen holds by the game's own count (its owned-pets
         /// list, pups included). Usually animals.Count; passed separately because
@@ -57,15 +53,17 @@ namespace SmolkrPenGenderTargets.Core
             if (penPopulation < minimumPopulation)
                 return None(CullReason.BelowMinimumPopulation, census, targets);
 
-            // Step 3: vanilla compares adult counts; the mod compares each adult
-            // count against its target. Only a gender with an adult can be chosen.
-            bool femaleAvailable = census.AdultFemales > 0;
-            bool maleAvailable = census.AdultMales > 0;
-            if (!femaleAvailable && !maleAvailable)
+            if (census.AdultFemales == 0 && census.AdultMales == 0)
                 return None(CullReason.NoAdults, census, targets);
 
-            int femaleSurplus = census.AdultFemales - targets.FemalesToKeep;
-            int maleSurplus = census.AdultMales - targets.MalesToKeep;
+            // Pups occupy places in the future herd. Only cull a surplus gender;
+            // the victim must still be an adult.
+            int femaleSurplus = census.AdultFemales + census.FemalePups - targets.FemalesToKeep;
+            int maleSurplus = census.AdultMales + census.MalePups - targets.MalesToKeep;
+            bool femaleAvailable = femaleSurplus > 0 && census.AdultFemales > 0;
+            bool maleAvailable = maleSurplus > 0 && census.AdultMales > 0;
+            if (!femaleAvailable && !maleAvailable)
+                return None(CullReason.NoSurplusAdults, census, targets);
             bool takeFemale = femaleAvailable && (!maleAvailable || femaleSurplus > maleSurplus);
 
             // Step 4, unchanged.

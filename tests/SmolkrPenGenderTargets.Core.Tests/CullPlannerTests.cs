@@ -3,8 +3,8 @@
 // Role in the larger system: pins down the mod's slaughter rule (CullPlanner)
 // and target arithmetic (HerdTargets) so a later change cannot silently alter
 // which smolkr a villager kills. The parity tests compare the rule against
-// VanillaReference, a transcription of the game's own method, to prove the mod
-// changes nothing but the ratio.
+// VanillaReference, a transcription of the game's own method, for adult-only
+// parity. Newborn regression tests cover the intentional mixed-age differences.
 
 using System;
 using System.Collections.Generic;
@@ -25,7 +25,7 @@ namespace SmolkrPenGenderTargets.Core.Tests
         private static CullDecision Decide(int limit, int females, params PenAnimal[] pen) =>
             CullPlanner.Decide(pen, HerdTargets.Create(limit, females), pen.Length, minimumPopulation: 0);
 
-        // --- When a slaughter happens: exactly vanilla ---------------------------
+        // --- Population gates ---------------------------------------------------
 
         [Fact]
         public void AtTheLimit_SlaughtersNothing_EvenIfTheRatioIsOff()
@@ -39,12 +39,12 @@ namespace SmolkrPenGenderTargets.Core.Tests
         }
 
         [Fact]
-        public void PupsCountTowardTheLimit_LikeVanilla()
+        public void PupsCountTowardBothTheLimitAndTargets()
         {
             // 5 adults and 2 pups against a limit of 6: over the limit.
             var decision = Decide(6, 5, F, F, F, F, M, FPup, MPup);
 
-            Assert.True(decision.HasVictim);
+            Assert.Equal(CullReason.MaleChosen, decision.Reason);
         }
 
         [Fact]
@@ -52,7 +52,7 @@ namespace SmolkrPenGenderTargets.Core.Tests
         {
             // The game counts an owned-pets entry it could not read a gender from;
             // the mod must see the same population as vanilla does.
-            var pen = new[] { F, F, M };
+            var pen = new[] { F, F, F };
             var decision = CullPlanner.Decide(pen, HerdTargets.Create(3, 2), penPopulation: 4, minimumPopulation: 0);
 
             Assert.True(decision.HasVictim);
@@ -115,20 +115,55 @@ namespace SmolkrPenGenderTargets.Core.Tests
         }
 
         [Fact]
-        public void EqualSurplus_MaleGoes_LikeVanillasTieBreak()
+        public void FemaleBirthAtTarget_SlaughtersFemaleAndKeepsMale()
         {
-            // 5F/1M wanted, pen exactly 5F/1M plus a pup: both at surplus 0.
             var decision = Decide(6, 5, F, F, F, F, F, M, FPup);
 
-            Assert.Equal(CullReason.MaleChosen, decision.Reason);
+            Assert.Equal(CullReason.FemaleChosen, decision.Reason);
+            Assert.Equal(4, decision.VictimIndex);
         }
 
         [Fact]
-        public void PreferredGenderHasNoAdults_TheOtherGenderGoes_LikeVanilla()
+        public void FemaleBirths_FromThreeOfEach_SettleAtFiveFemalesAndOneMale()
         {
-            // Every male wanted, none present as adults; the pen is over the limit,
-            // so as in vanilla an adult of the gender that exists is taken.
-            var decision = Decide(3, 0, F, F, MPup, MPup);
+            var pen = new List<PenAnimal> { F, F, F, M, M, M };
+            for (int birth = 0; birth < 10; birth++)
+            {
+                pen.Add(FPup);
+                var decision = CullPlanner.Decide(pen, HerdTargets.Create(6, 5), pen.Count, 0);
+                Assert.True(decision.HasVictim);
+                pen.RemoveAt(decision.VictimIndex);
+                pen[pen.Count - 1] = F; // The newborn matures before the next birth.
+                Assert.Contains(pen, a => !a.IsFemale);
+            }
+            Assert.Equal(5, pen.Count(a => a.IsFemale));
+            Assert.Single(pen, a => !a.IsFemale);
+        }
+
+        [Fact]
+        public void MaleBirthAtTarget_SlaughtersMaleEvenIfHeIsTheOnlyAdultMale()
+        {
+            var decision = Decide(6, 5, F, F, F, F, F, M, MPup);
+
+            Assert.Equal(CullReason.MaleChosen, decision.Reason);
+            Assert.Equal(5, decision.VictimIndex);
+        }
+
+        [Fact]
+        public void SurplusGenderHasOnlyPups_DoesNotSlaughterOtherGender()
+        {
+            var decision = Decide(6, 5, F, F, F, F, F, MPup, MPup);
+
+            Assert.Equal(CullReason.NoSurplusAdults, decision.Reason);
+            Assert.False(decision.HasVictim);
+            // Once one male matures, it can be slaughtered to leave one male pup.
+            Assert.Equal(CullReason.MaleChosen, Decide(6, 5, F, F, F, F, F, M, MPup).Reason);
+        }
+
+        [Fact]
+        public void ZeroFemaleTarget_AllowsLastAdultFemaleToBeSlaughtered()
+        {
+            var decision = Decide(3, 0, F, MPup, MPup, MPup);
 
             Assert.Equal(CullReason.FemaleChosen, decision.Reason);
         }
@@ -147,17 +182,17 @@ namespace SmolkrPenGenderTargets.Core.Tests
         // --- Parity with vanilla -----------------------------------------------
 
         [Fact]
-        public void EvenSplitTargets_MatchVanillaExactly_OnRandomPens()
+        public void EvenSplitTargets_MatchVanillaExactly_OnAdultOnlyPens()
         {
             // With an even split the mod must make exactly vanilla's decision -
-            // same outcome and same individual - for any pen at all.
+            // same outcome and same individual - for readable adult-only pens.
             var random = new Random(20260927);
             for (int run = 0; run < 20000; run++)
             {
                 int limit = random.Next(0, 7) * 2;
                 int minimum = random.Next(0, 6);
-                var pen = RandomPen(random);
-                int population = pen.Length + (random.Next(10) == 0 ? 1 : 0);
+                var pen = RandomPen(random).Select(a => new PenAnimal(a.IsFemale, true)).ToArray();
+                int population = pen.Length;
 
                 var mod = CullPlanner.Decide(pen, HerdTargets.Create(limit, limit / 2), population, minimum);
                 var vanilla = VanillaReference.Decide(pen, limit, population, minimum);
@@ -167,10 +202,9 @@ namespace SmolkrPenGenderTargets.Core.Tests
         }
 
         [Fact]
-        public void AnyTargets_SlaughterHappensExactlyWhenVanillasWould()
+        public void AnyTargets_OnlySlaughterAdultsOfAnOverTargetGender()
         {
-            // Whatever the targets, the "whether" is vanilla's; only the "which"
-            // may differ.
+            // No selection may reduce a gender that is at or below its target.
             var random = new Random(7);
             for (int run = 0; run < 20000; run++)
             {
@@ -178,10 +212,14 @@ namespace SmolkrPenGenderTargets.Core.Tests
                 int minimum = random.Next(0, 6);
                 var pen = RandomPen(random);
 
-                var mod = CullPlanner.Decide(pen, HerdTargets.Create(limit, random.Next(-1, limit + 2)), pen.Length, minimum);
-                var vanilla = VanillaReference.Decide(pen, limit, pen.Length, minimum);
+                var targets = HerdTargets.Create(limit, random.Next(-1, limit + 2));
+                var mod = CullPlanner.Decide(pen, targets, pen.Length, minimum);
 
-                Assert.Equal(vanilla.HasVictim, mod.HasVictim);
+                if (!mod.HasVictim) continue;
+                Assert.True(pen.Length > limit && pen.Length >= minimum);
+                var victim = pen[mod.VictimIndex];
+                Assert.True(victim.IsMature);
+                Assert.True(pen.Count(a => a.IsFemale == victim.IsFemale) > targets.ToKeep(victim.IsFemale));
             }
         }
 
